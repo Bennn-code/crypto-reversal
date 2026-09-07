@@ -1,0 +1,11 @@
+[Unit]
+Description=Reversal pattern Telegram scanner
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/ubuntu/reversal-bot
+EnvironmentFile=/home/ubuntu/reversal-bot/.env
+ExecStart=/home/ubuntu/reversal-bot/.venv/bin/python /home/ubuntu/reversal-bot/scanner.py
+User=ubuntu
+

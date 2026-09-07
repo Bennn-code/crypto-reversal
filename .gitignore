@@ -1,0 +1,6 @@
+.env
+*.sqlite
+*.log
+__pycache__/
+cmc_cache.json
+test_cmc_cache.json
