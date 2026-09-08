@@ -84,18 +84,44 @@ def render(item: dict) -> str:
     return f"🔄 <b>反轉機會｜{('HIGH' if signal.score >= 80 else 'EARLY' if signal.score >= 70 else 'WATCH')}</b>\n\n<b>{item['symbol']}</b>｜{signal.name}\n分數：<b>{signal.score}/100</b>｜完成度：{signal.completion}%\n方向：<b>{signal.direction}</b>｜信心：{signal.confidence}\n\n📊 <b>結構判斷</b>\n{checks}\n\n⏳ <b>尚缺條件</b>\n{missing}\n\n📈 <b>24H 量能</b>\n合約：{fmt_money(contract)}\n現貨：{fmt_money(spot)}\n合約/現貨：{f'{ratio:.2f}' if ratio else 'N/A'}\n\n📌 <b>市場資料</b>\nCMC 排名：#{meta.get('rank') or 'N/A'}\n市值：{fmt_money(meta.get('market_cap'))}\n目前 OI：{fmt_money(market.get('oi'))}\n\n⚠️ 型態掃描訊號，並非自動交易建議。"
 
 
+def render_summary(items: list[dict], sent_count: int, cooldown_count: int) -> str:
+    lines = [
+        "🔄 <b>反轉型態摘要（12 小時）</b>",
+        "",
+        f"本次掃描候選：{len(items)}",
+        f"新訊號已推送：{sent_count}",
+        f"Cooldown 暫不重推：{cooldown_count}",
+    ]
+    if not items:
+        lines.extend(["", "本次沒有掃描到符合條件的反轉型態。", "日線與 4H 掃描已完成。"])
+        return "\n".join(lines)
+
+    lines.extend(["", "<b>最接近的型態：</b>"])
+    for index, item in enumerate(items[:3], start=1):
+        signal: PatternSignal = item["signal"]
+        lines.append(
+            f"{index}. <b>{item['symbol']}</b>｜{signal.name}｜{signal.score}/100｜{signal.direction}｜完成度 {signal.completion}%"
+        )
+    lines.append("\n⚠️ 型態掃描僅供觀察，不是直接進場建議。")
+    return "\n".join(lines)
+
+
 def main() -> None:
     settings = get_settings()
     items = scan(settings)
-    if not items:
-        send_telegram(settings, "🔄 <b>反轉型態摘要</b>\n\n本次 12 小時掃描沒有發現符合條件的 U 型底、W 底、頭肩底、杯柄底、倒 U 型頂或頭肩頂。\n\n日線與 4H 掃描已完成，下次將於 12 小時後或收線時補掃。")
-        return
+    sent_count = 0
+    cooldown_count = 0
+    store = Store(settings.sqlite_path)
     for item in items:
         signal = item["signal"]
-        store = Store(settings.sqlite_path)
         if store.can_alert(item["symbol"], signal.name, signal.direction, settings.cooldown_hours):
             send_telegram(settings, render(item))
             store.record_alert(item["symbol"], signal.name, signal.direction)
+            sent_count += 1
+        else:
+            cooldown_count += 1
+    # A heartbeat summary is mandatory, even when all candidates are cooling down.
+    send_telegram(settings, render_summary(items, sent_count, cooldown_count))
 
 
 if __name__ == "__main__":
