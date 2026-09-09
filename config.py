@@ -34,6 +34,11 @@ class Settings:
     scan_limit: int
     max_symbols: int
     cooldown_hours: int
+    min_cmc_rank: int
+    max_cmc_rank: int
+    min_market_cap_usd: float
+    max_market_cap_usd: float
+    min_cmc_volume_usd: float
 
 
 def get_settings() -> Settings:
@@ -50,4 +55,9 @@ def get_settings() -> Settings:
         scan_limit=int(os.getenv("SCAN_LIMIT", "5")),
         max_symbols=int(os.getenv("MAX_SYMBOLS", "120")),
         cooldown_hours=int(os.getenv("COOLDOWN_HOURS", "24")),
+        min_cmc_rank=int(os.getenv("MIN_CMC_RANK", "50")),
+        max_cmc_rank=int(os.getenv("MAX_CMC_RANK", "500")),
+        min_market_cap_usd=float(os.getenv("MIN_MARKET_CAP_USD", "20000000")),
+        max_market_cap_usd=float(os.getenv("MAX_MARKET_CAP_USD", "3000000000")),
+        min_cmc_volume_usd=float(os.getenv("MIN_CMC_VOLUME_USD", "1000000")),
     )

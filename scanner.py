@@ -11,6 +11,11 @@ from config import get_settings
 from patterns import PatternSignal, signal_for, volume_ratio
 from storage import Store
 
+EXCLUDED_SYMBOLS = {
+    "BTC", "ETH", "USDT", "USDC", "DAI", "FDUSD", "TUSD", "USDE", "USDD",
+    "PYUSD", "FRAX", "LUSD", "USDP", "GUSD", "USDS", "USD0", "USN",
+}
+
 
 def send_telegram(settings, text: str) -> None:
     if settings.dry_run:
@@ -41,9 +46,30 @@ def fmt_money(value: float | None) -> str:
     return f"${value:.0f}"
 
 
+def is_smallcap_candidate(symbol: str, meta: dict, settings) -> bool:
+    rank = meta.get("rank")
+    market_cap = meta.get("market_cap")
+    volume = meta.get("volume")
+    if symbol in EXCLUDED_SYMBOLS:
+        return False
+    if not isinstance(rank, int) or not settings.min_cmc_rank <= rank <= settings.max_cmc_rank:
+        return False
+    if not isinstance(market_cap, (int, float)) or not settings.min_market_cap_usd <= market_cap <= settings.max_market_cap_usd:
+        return False
+    return isinstance(volume, (int, float)) and volume >= settings.min_cmc_volume_usd
+
+
 def scan(settings) -> list[dict]:
     cmc = fetch_cmc("cmc_cache.json", settings.cmc_cache_ttl, settings.cmc_api_key)
-    symbols = sorted((symbol + "USDT" for symbol in cmc if symbol not in {"USDT", "USDC", "DAI", "FDUSD"}), key=lambda item: (cmc.get(item.removesuffix("USDT"), {}).get("market_cap") or 0), reverse=True)
+    symbols = sorted(
+        (
+            symbol + "USDT"
+            for symbol, meta in cmc.items()
+            if is_smallcap_candidate(symbol, meta, settings)
+        ),
+        key=lambda item: cmc.get(item.removesuffix("USDT"), {}).get("volume") or 0,
+        reverse=True,
+    )
     store = Store(settings.sqlite_path)
     results = []
     # Two-stage scan: daily structure first, then expensive 4H/OI enrichment.
