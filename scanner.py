@@ -1,14 +1,12 @@
 from __future__ import annotations
 
+import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
-import sys
 import time
 from urllib.error import HTTPError
 import urllib.parse
 import urllib.request
-from pathlib import Path
-
 from clients import fetch_cmc, fetch_klines, fetch_market_data
 from config import get_settings
 from patterns import PatternSignal, signal_for, volume_ratio
@@ -72,6 +70,38 @@ def is_smallcap_candidate(symbol: str, meta: dict, settings) -> bool:
     return isinstance(volume, (int, float)) and volume >= settings.min_cmc_volume_usd
 
 
+def apply_h4_confirmation(daily_signal: PatternSignal, h4_signal: PatternSignal | None) -> PatternSignal:
+    """Use 4H as confirmation only; keep the daily pattern as the alert label."""
+    if not h4_signal:
+        return daily_signal
+
+    daily_bullish = daily_signal.direction in {"LONG", "偏多觀察"}
+    h4_bullish = h4_signal.direction in {"LONG", "偏多觀察"}
+    if daily_bullish == h4_bullish:
+        score = min(95, daily_signal.score + (6 if h4_signal.direction in {"LONG", "SHORT"} else 3))
+        completion = min(98, daily_signal.completion + 5)
+        return PatternSignal(
+            daily_signal.name,
+            score,
+            completion,
+            daily_signal.direction,
+            "高" if score >= 80 else "中" if score >= 70 else "低",
+            [*daily_signal.reasons, f"4H 同向確認：{h4_signal.name}"],
+            daily_signal.missing,
+        )
+
+    score = max(0, daily_signal.score - 8)
+    return PatternSignal(
+        daily_signal.name,
+        score,
+        daily_signal.completion,
+        daily_signal.direction,
+        "中" if score >= 70 else "低",
+        daily_signal.reasons,
+        [*daily_signal.missing, f"4H 出現反向結構：{h4_signal.name}"],
+    )
+
+
 def scan(settings) -> list[dict]:
     cmc = fetch_cmc(
         "cmc_cache.json",
@@ -121,11 +151,9 @@ def scan(settings) -> list[dict]:
             except Exception:
                 h4 = []
             h_signal = signal_for(h4, "4h") if h4 else None
-            signal = d_signal or h_signal
+            signal = apply_h4_confirmation(d_signal, h_signal) if d_signal else h_signal
             if not signal or signal.score < 60:
                 continue
-            if h_signal and h_signal.direction in {"LONG", "SHORT"} and d_signal.direction == "待觀察":
-                signal = PatternSignal(signal.name, max(0, signal.score - 5), signal.completion, "待觀察", signal.confidence, signal.reasons, signal.missing)
             qualified.append((symbol, daily, signal))
 
     results = []
@@ -192,39 +220,45 @@ def render_summary(
     return "\n".join(lines)
 
 
-def main() -> None:
+def main(summary: bool = False) -> None:
     settings = get_settings()
     items = scan(settings)
     sent_count = 0
+    early_sent_count = 0
     cooldown_count = 0
     below_threshold_count = 0
     store = Store(settings.sqlite_path)
-    remaining_today = max(0, settings.daily_alert_limit - store.alerts_sent_today())
+    remaining_early = max(0, settings.daily_alert_limit - store.alerts_sent_today(70, 79))
     for item in items:
         signal = item["signal"]
         if signal.score < settings.min_alert_score:
             below_threshold_count += 1
         elif not store.can_alert(item["symbol"], signal.name, signal.direction, settings.cooldown_hours):
             cooldown_count += 1
-        elif sent_count >= remaining_today:
+        elif signal.score < 80 and early_sent_count >= remaining_early:
             continue
         else:
             send_telegram(settings, render(item))
-            store.record_alert(item["symbol"], signal.name, signal.direction)
+            store.record_alert(item["symbol"], signal.name, signal.direction, signal.score)
             sent_count += 1
+            if signal.score < 80:
+                early_sent_count += 1
             time.sleep(settings.telegram_message_interval_seconds)
-    # A heartbeat summary is mandatory, even when all candidates are cooling down.
-    send_telegram(
-        settings,
-        render_summary(
-            items,
-            sent_count,
-            cooldown_count,
-            below_threshold_count,
-            remaining_today == 0 or sent_count >= remaining_today,
-        ),
-    )
+    if summary:
+        send_telegram(
+            settings,
+            render_summary(
+                items,
+                sent_count,
+                cooldown_count,
+                below_threshold_count,
+                remaining_early == 0 or (early_sent_count >= remaining_early and remaining_early > 0),
+            ),
+        )
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Scan crypto reversal patterns")
+    parser.add_argument("--summary", action="store_true", help="send the 12-hour heartbeat summary after scanning")
+    args = parser.parse_args()
+    main(summary=args.summary)
