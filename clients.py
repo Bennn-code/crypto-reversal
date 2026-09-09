@@ -125,7 +125,7 @@ def fetch_spot_volume(symbol: str) -> float | None:
         return None
 
 
-def fetch_cmc(cache_path: str, ttl: int, api_key: str) -> dict[str, dict[str, Any]]:
+def fetch_cmc(cache_path: str, ttl: int, api_key: str, listing_limit: int = 1000) -> dict[str, dict[str, Any]]:
     cache = Path(cache_path)
     if cache.exists() and time.time() - cache.stat().st_mtime < ttl:
         return json.loads(cache.read_text(encoding="utf-8"))
@@ -136,7 +136,7 @@ def fetch_cmc(cache_path: str, ttl: int, api_key: str) -> dict[str, dict[str, An
     ]
     for url, request_headers in urls:
         try:
-            payload = get_json(url, {"start": 1, "limit": 500, "convert": "USD"}, request_headers)
+            payload = get_json(url, {"start": 1, "limit": listing_limit, "convert": "USD"}, request_headers)
             rows = payload.get("data", [])
             result = {}
             for row in rows:

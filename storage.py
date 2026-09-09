@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 class Store:
@@ -21,9 +23,16 @@ class Store:
         with sqlite3.connect(self.path) as db:
             db.execute("INSERT OR REPLACE INTO alerts VALUES (?, ?, ?, ?)", (symbol, pattern, direction, int(time.time())))
 
+    def alerts_sent_today(self) -> int:
+        taipei = ZoneInfo("Asia/Taipei")
+        now = datetime.now(taipei)
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        with sqlite3.connect(self.path) as db:
+            row = db.execute("SELECT COUNT(*) FROM alerts WHERE created_at >= ?", (int(start.timestamp()),)).fetchone()
+        return int(row[0] if row else 0)
+
     def save_oi(self, symbol: str, timeframe: str, value: float | None) -> None:
         if value is None:
             return
         with sqlite3.connect(self.path) as db:
             db.execute("INSERT OR REPLACE INTO snapshots VALUES (?, ?, ?, ?)", (symbol, timeframe, int(time.time()), value))
-
