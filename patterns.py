@@ -53,7 +53,9 @@ def _signal(
     trigger_score = 15 if confirmed else 7 if near_trigger else 0
     volume_score = 10 if volume >= 1.4 else 5 if volume >= 1.0 else 0
     daily_score = 5 if timeframe == "1d" else 0
-    score = min(95, 25 + structure + trigger_score + volume_score + daily_score)
+    # A confirmed daily pattern with ordinary volume is EARLY (~75).
+    # HIGH requires strong volume or an additional 4H confirmation.
+    score = min(95, 20 + structure + trigger_score + volume_score + daily_score)
     completion = min(98, 40 + structure + trigger_score + volume_score)
     direction = ("LONG" if confirmed else "偏多觀察") if bullish else ("SHORT" if confirmed else "偏空觀察")
     confidence = "高" if score >= 80 else "中" if score >= 70 else "低"
