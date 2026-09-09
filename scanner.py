@@ -192,20 +192,26 @@ def render(item: dict) -> str:
 def render_summary(
     items: list[dict],
     sent_count: int,
+    high_sent_count: int,
+    early_sent_count: int,
     cooldown_count: int,
     below_threshold_count: int,
-    quota_exhausted: bool,
+    high_limit_count: int,
+    early_limit_count: int,
 ) -> str:
     lines = [
         "🔄 <b>反轉型態摘要（12 小時）</b>",
         "",
         f"本次掃描候選：{len(items)}",
         f"新訊號已推送：{sent_count}",
+        f"HIGH：{high_sent_count}｜EARLY：{early_sent_count}",
         f"Cooldown 暫不重推：{cooldown_count}",
         f"分數未達推送門檻：{below_threshold_count}",
     ]
-    if quota_exhausted:
-        lines.append("今日 5 則推送額度已滿，較低分或重複訊號暫不推送。")
+    if high_limit_count:
+        lines.append(f"本輪另有 {high_limit_count} 個 HIGH 因 5 則上限未逐則推送。")
+    if early_limit_count:
+        lines.append(f"另有 {early_limit_count} 個 EARLY 因每日 5 則上限未逐則推送。")
     if sent_count == 0:
         lines.extend(["", "本次沒有可推送的新型態。", "日線與 4H 掃描已完成。"])
         return "\n".join(lines)
@@ -224,9 +230,12 @@ def main(summary: bool = False) -> None:
     settings = get_settings()
     items = scan(settings)
     sent_count = 0
+    high_sent_count = 0
     early_sent_count = 0
     cooldown_count = 0
     below_threshold_count = 0
+    high_limit_count = 0
+    early_limit_count = 0
     store = Store(settings.sqlite_path)
     remaining_early = max(0, settings.daily_alert_limit - store.alerts_sent_today(70, 79))
     for item in items:
@@ -235,13 +244,19 @@ def main(summary: bool = False) -> None:
             below_threshold_count += 1
         elif not store.can_alert(item["symbol"], signal.name, signal.direction, settings.cooldown_hours):
             cooldown_count += 1
+        elif signal.score >= 80 and high_sent_count >= settings.high_alert_limit_per_scan:
+            high_limit_count += 1
+            continue
         elif signal.score < 80 and early_sent_count >= remaining_early:
+            early_limit_count += 1
             continue
         else:
             send_telegram(settings, render(item))
             store.record_alert(item["symbol"], signal.name, signal.direction, signal.score)
             sent_count += 1
-            if signal.score < 80:
+            if signal.score >= 80:
+                high_sent_count += 1
+            else:
                 early_sent_count += 1
             time.sleep(settings.telegram_message_interval_seconds)
     if summary:
@@ -250,9 +265,12 @@ def main(summary: bool = False) -> None:
             render_summary(
                 items,
                 sent_count,
+                high_sent_count,
+                early_sent_count,
                 cooldown_count,
                 below_threshold_count,
-                remaining_early == 0 or (early_sent_count >= remaining_early and remaining_early > 0),
+                high_limit_count,
+                early_limit_count,
             ),
         )
 
