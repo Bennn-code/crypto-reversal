@@ -33,12 +33,15 @@ class Settings:
     sqlite_path: str
     scan_limit: int
     max_symbols: int
+    scan_workers: int
     cooldown_hours: int
-    min_cmc_rank: int
-    max_cmc_rank: int
+    telegram_message_interval_seconds: float
+    min_alert_score: int
+    daily_alert_limit: int
     min_market_cap_usd: float
     max_market_cap_usd: float
     min_cmc_volume_usd: float
+    cmc_listing_limit: int
 
 
 def get_settings() -> Settings:
@@ -52,12 +55,15 @@ def get_settings() -> Settings:
         cmc_cache_ttl=int(os.getenv("CMC_CACHE_TTL_SECONDS", "7200")),
         dry_run=env_bool("DRY_RUN", True),
         sqlite_path=os.getenv("SQLITE_PATH", "reversal_alerts.sqlite"),
-        scan_limit=int(os.getenv("SCAN_LIMIT", "5")),
-        max_symbols=int(os.getenv("MAX_SYMBOLS", "120")),
+        scan_limit=int(os.getenv("SCAN_LIMIT", "0")),
+        max_symbols=int(os.getenv("MAX_SYMBOLS", "0")),
+        scan_workers=int(os.getenv("SCAN_WORKERS", "6")),
         cooldown_hours=int(os.getenv("COOLDOWN_HOURS", "24")),
-        min_cmc_rank=int(os.getenv("MIN_CMC_RANK", "50")),
-        max_cmc_rank=int(os.getenv("MAX_CMC_RANK", "500")),
+        telegram_message_interval_seconds=float(os.getenv("TELEGRAM_MESSAGE_INTERVAL_SECONDS", "3.2")),
+        min_alert_score=int(os.getenv("MIN_ALERT_SCORE", "70")),
+        daily_alert_limit=int(os.getenv("DAILY_ALERT_LIMIT", "5")),
         min_market_cap_usd=float(os.getenv("MIN_MARKET_CAP_USD", "20000000")),
         max_market_cap_usd=float(os.getenv("MAX_MARKET_CAP_USD", "3000000000")),
         min_cmc_volume_usd=float(os.getenv("MIN_CMC_VOLUME_USD", "1000000")),
+        cmc_listing_limit=int(os.getenv("CMC_LISTING_LIMIT", "1000")),
     )

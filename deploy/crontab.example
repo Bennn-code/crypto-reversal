@@ -1,5 +1,5 @@
-# Every 12 hours. The daily close scan can be scheduled separately if desired.
-0 */12 * * * cd /home/ubuntu/reversal-bot && /home/ubuntu/reversal-bot/.venv/bin/python scanner.py >> /home/ubuntu/reversal-bot/reversal.log 2>&1
+# Regular 4-hour scans without a heartbeat summary (UTC).
+0 4,8,16,20 * * * cd /home/ubuntu/reversal-bot && /home/ubuntu/reversal-bot/.venv/bin/python scanner.py >> /home/ubuntu/reversal-bot/reversal.log 2>&1
 
-# Optional daily close scan at 00:05 UTC.
-5 0 * * * cd /home/ubuntu/reversal-bot && /home/ubuntu/reversal-bot/.venv/bin/python scanner.py >> /home/ubuntu/reversal-bot/reversal.log 2>&1
+# 00:00 and 12:00 UTC scans also send the mandatory 12-hour summary.
+0 0,12 * * * cd /home/ubuntu/reversal-bot && /home/ubuntu/reversal-bot/.venv/bin/python scanner.py --summary >> /home/ubuntu/reversal-bot/reversal.log 2>&1
