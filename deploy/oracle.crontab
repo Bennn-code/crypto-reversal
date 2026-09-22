@@ -1,7 +1,5 @@
 # m h  dom mon dow   command
 */10 * * * * cd /home/ubuntu/smallcap-bot && /home/ubuntu/smallcap-bot/.venv/bin/python scanner.py --once >> /home/ubuntu/smallcap-bot/cron.log 2>&1
-0 1 * * * cd /home/ubuntu/smallcap-bot && /home/ubuntu/smallcap-bot/.venv/bin/python scanner.py --once --summary --max-alerts 5 >> /home/ubuntu/smallcap-bot/cron.log 2>&1
-0 */4 * * * cd /home/ubuntu/smallcap-bot && /home/ubuntu/smallcap-bot/.venv/bin/python scanner.py --once --watch-summary --max-alerts 8 >> /home/ubuntu/smallcap-bot/cron.log 2>&1
 30 1 */3 * * cd /home/ubuntu/smallcap-bot && /home/ubuntu/smallcap-bot/.venv/bin/python scanner.py --once --u-bottom --max-alerts 5 >> /home/ubuntu/smallcap-bot/cron.log 2>&1
 0 4,8,16,20 * * * cd /home/ubuntu/reversal-bot && /home/ubuntu/smallcap-bot/.venv/bin/python scanner.py >> /home/ubuntu/reversal-bot/reversal.log 2>&1
 0 0,12 * * * cd /home/ubuntu/reversal-bot && /home/ubuntu/smallcap-bot/.venv/bin/python scanner.py --summary >> /home/ubuntu/reversal-bot/reversal.log 2>&1
